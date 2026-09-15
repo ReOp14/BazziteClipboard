@@ -1,0 +1,11 @@
+{
+    "KPackageStructure": "KWin/Script",
+    "KPlugin": {
+        "Description": "Places the Bazzite Clipboard popup at the pointer as soon as it appears",
+        "Id": "bazziteclipboardpos",
+        "License": "MIT",
+        "Name": "Bazzite Clipboard Position",
+        "Version": "1.0"
+    },
+    "X-Plasma-API": "javascript"
+}
