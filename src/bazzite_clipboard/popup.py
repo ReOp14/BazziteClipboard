@@ -40,6 +40,9 @@ from .settings import (
     MIN_OPACITY,
     MIN_WINDOW_HEIGHT,
     MIN_WINDOW_WIDTH,
+    DEFAULT_ITEM_SPACING,
+    MAX_ITEM_SPACING,
+    MIN_ITEM_SPACING,
     Settings,
     format_bytes,
 )
@@ -48,8 +51,9 @@ from .watcher import is_image_url
 
 POPUP_WIDTH = 520
 POPUP_HEIGHT = 560
-TEXT_ROW_HEIGHT = 44
+TEXT_ROW_HEIGHT = 36
 IMAGE_PREVIEW_HEIGHT = 128
+INITIAL_LOAD_LIMIT = 150
 
 
 class SmoothListWidget(QListWidget):
@@ -118,8 +122,8 @@ class ClipRow(QFrame):
         self.setObjectName("ClipRow")
         self.item = item
         root = QVBoxLayout(self)
-        root.setContentsMargins(8, 6, 8, 6)
-        root.setSpacing(6)
+        root.setContentsMargins(8, 3, 8, 3)
+        root.setSpacing(4)
 
         self.actions = QWidget()
         self.actions.setObjectName("RowActions")
@@ -153,7 +157,7 @@ class ClipRow(QFrame):
             self.actions.setParent(image_wrap)
             grid.addWidget(self.actions, 0, 0, Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignRight)
             root.addWidget(image_wrap)
-            self.setMinimumHeight((preview.height() if preview is not None and not preview.isNull() else IMAGE_PREVIEW_HEIGHT) + 12)
+            self.setMinimumHeight((preview.height() if preview is not None and not preview.isNull() else IMAGE_PREVIEW_HEIGHT) + 6)
         else:
             top = QHBoxLayout()
             top.setContentsMargins(4, 0, 0, 0)
@@ -275,7 +279,7 @@ class ClipboardPopup(QWidget):
 
         self.list = SmoothListWidget()
         self.list.setObjectName("ClipList")
-        self.list.setSpacing(2)
+        self.list.setSpacing(self._settings.item_spacing)
         self.list.setUniformItemSizes(False)
         self.list.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.list.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
@@ -329,6 +333,22 @@ class ClipboardPopup(QWidget):
         hint = QLabel("Lower is more see-through. Default is 88%.")
         hint.setObjectName("SettingsHint")
         layout.addWidget(hint)
+
+        layout.addWidget(_settings_label("Item spacing"))
+        spacing_row = QHBoxLayout()
+        self.spacing_slider = QSlider(Qt.Orientation.Horizontal)
+        self.spacing_slider.setRange(MIN_ITEM_SPACING, MAX_ITEM_SPACING)
+        self.spacing_slider.setValue(self._settings.item_spacing)
+        self.spacing_slider.valueChanged.connect(self._on_spacing_changed)
+        spacing_row.addWidget(self.spacing_slider, 1)
+        self.spacing_value = QLabel(f"{self._settings.item_spacing} px")
+        self.spacing_value.setObjectName("SettingsValue")
+        self.spacing_value.setFixedWidth(44)
+        spacing_row.addWidget(self.spacing_value)
+        layout.addLayout(spacing_row)
+        spacing_hint = QLabel("Gap between clipboard entries. Default is 2.")
+        spacing_hint.setObjectName("SettingsHint")
+        layout.addWidget(spacing_hint)
 
         layout.addWidget(_settings_label("Keep at most"))
         entries_row = QHBoxLayout()
@@ -544,6 +564,12 @@ class ClipboardPopup(QWidget):
         self._apply_panel_opacity(opacity)
         self._save_timer.start()
 
+    def _on_spacing_changed(self, value: int) -> None:
+        self._settings.item_spacing = value
+        self.spacing_value.setText(f"{value} px")
+        self.list.setSpacing(value)
+        self._save_timer.start()
+
     def _on_entries_changed(self, value: int) -> None:
         self._settings.max_entries = value
         self._save_timer.start()
@@ -606,7 +632,7 @@ class ClipboardPopup(QWidget):
         self.search.clear()
         self.search.blockSignals(False)
         self.pages.setCurrentIndex(0)
-        self.reload()
+        self.reload(limit=INITIAL_LOAD_LIMIT)
         self._close_on_deactivate = False
         self.setWindowOpacity(0.0)
         self.show()
@@ -626,15 +652,16 @@ class ClipboardPopup(QWidget):
         else:
             self.show_popup()
 
-    def reload(self) -> None:
+    def reload(self, limit: int | None = None) -> None:
         query = self.search.text()
         items = [
             item
-            for item in self._store.list_items(query)
+            for item in self._store.list_items(query, limit=limit)
             if item.kind == "image" or not is_image_url(item.text_content or "")
         ]
         current_id = self._current_id()
         self.list.clear()
+        self.list.setSpacing(self._settings.item_spacing)
         self._items = {item.id: item for item in items}
 
         if not items:
@@ -725,22 +752,21 @@ class ClipboardPopup(QWidget):
 
     def _place_then_reveal(self) -> None:
         place_popup_at_cursor()
-        QTimer.singleShot(40, self._reveal_window)
+        QTimer.singleShot(25, self._reveal_window)
 
     def _reveal_window(self) -> None:
-        place_popup_at_cursor()
         enable_plasma_backdrop(self)
         self.raise_()
         self.activateWindow()
         self.search.setFocus(Qt.FocusReason.ActiveWindowFocusReason)
         anim = QPropertyAnimation(self, b"windowOpacity", self)
-        anim.setDuration(90)
+        anim.setDuration(55)
         anim.setStartValue(0.0)
         anim.setEndValue(1.0)
         anim.setEasingCurve(QEasingCurve.Type.OutCubic)
         anim.start()
         self._reveal = anim
-        QTimer.singleShot(180, self._enable_deactivate_close)
+        QTimer.singleShot(100, self._enable_deactivate_close)
 
     def _enable_deactivate_close(self) -> None:
         self._close_on_deactivate = True

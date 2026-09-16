@@ -6,10 +6,25 @@ import os
 import signal
 import sys
 
-from PySide6.QtCore import QObject, QTimer, Slot, ClassInfo
+from PySide6.QtCore import QObject, QTimer, Slot, ClassInfo, QtMsgType, qInstallMessageHandler
 from PySide6.QtDBus import QDBusAbstractAdaptor, QDBusConnection
 from PySide6.QtGui import QAction, QGuiApplication
 from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
+
+_SUPPRESS_FRAGMENTS = (
+    "does not support setting window opacity",
+)
+
+
+def _qt_message_handler(mode: QtMsgType, _context: object, message: str) -> None:
+    for fragment in _SUPPRESS_FRAGMENTS:
+        if fragment in message:
+            return
+    if mode in (QtMsgType.QtWarningMsg, QtMsgType.QtCriticalMsg, QtMsgType.QtFatalMsg):
+        print(f"Qt: {message}", file=sys.stderr)
+
+
+qInstallMessageHandler(_qt_message_handler)
 
 from . import APP_DISPLAY_NAME, APP_NAME, DBUS_INTERFACE, DBUS_PATH, DBUS_SERVICE, __version__
 from .icon import clipboard_icon

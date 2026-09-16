@@ -19,6 +19,9 @@ MIN_WINDOW_WIDTH = 380
 MAX_WINDOW_WIDTH = 1400
 MIN_WINDOW_HEIGHT = 360
 MAX_WINDOW_HEIGHT = 1100
+DEFAULT_ITEM_SPACING = 2
+MIN_ITEM_SPACING = 0
+MAX_ITEM_SPACING = 20
 
 
 @dataclass
@@ -28,6 +31,7 @@ class Settings:
     retention_days: int = RETENTION_DAYS
     window_width: int = DEFAULT_WINDOW_WIDTH
     window_height: int = DEFAULT_WINDOW_HEIGHT
+    item_spacing: int = DEFAULT_ITEM_SPACING
 
     @classmethod
     def load(cls) -> "Settings":
@@ -46,12 +50,14 @@ class Settings:
         retention = _clamp_int(raw.get("retention_days"), RETENTION_DAYS, 1, 3650)
         width = _clamp_int(raw.get("window_width"), DEFAULT_WINDOW_WIDTH, MIN_WINDOW_WIDTH, MAX_WINDOW_WIDTH)
         height = _clamp_int(raw.get("window_height"), DEFAULT_WINDOW_HEIGHT, MIN_WINDOW_HEIGHT, MAX_WINDOW_HEIGHT)
+        spacing = _clamp_int(raw.get("item_spacing"), DEFAULT_ITEM_SPACING, MIN_ITEM_SPACING, MAX_ITEM_SPACING)
         return cls(
             panel_opacity=opacity,
             max_entries=max_entries,
             retention_days=retention,
             window_width=width,
             window_height=height,
+            item_spacing=spacing,
         )
 
     def save(self) -> None:
